@@ -1,4 +1,5 @@
 from .plant import Plant
+from .visualize import Visualizer
 import numpy as np
 
 
@@ -22,7 +23,7 @@ class Maneuver(object):
         self.duration = duration
         self.title = title
 
-    def evaluate(self, control=None, verbosity=0, min_gap=5):
+    def evaluate(self, control=None, verbosity=0, gap=10):
         """runs the plant sim and returns (score, run_data)"""
         plant = Plant(
             lead_relevancy=self.lead_relevancy,
@@ -37,6 +38,20 @@ class Maneuver(object):
         brake = 0
         gas = 0
         steer_torque = 0
+
+        previous_state = 0 # 3 possible states(accelerating(1), not accelerating(0), braking(-1))
+        neg_score = 0.
+        prev_accel = 0.
+        # TODO: calibrate this threshold to denote maximum discomfort allowed
+        neg_score_threshold = 20.
+        # TODO: calibrate this constant for scaling rate of acceleration
+        accel_const = 1.
+
+        # Initialize the Visualizer. Set animate = False to only display the plots at the end of the maneuver,
+        # this will be faster than showing in real time with animate = True
+        # max_speed, max_accel, max_score set the maximum for the y-axis
+        # TODO: make this dynamic?
+        vis = Visualizer(animate=True, max_speed=100, max_accel=100, max_score=100)
 
         while plant.current_time() < self.duration:
             while buttons_sorted and plant.current_time() >= buttons_sorted[0][1]:
@@ -56,15 +71,51 @@ class Maneuver(object):
                                                                          cruise_buttons=current_button,
                                                                          grade=grade)
 
-            # If the car in front is less than min_gap away, give it the worst score
-            # and abort.
-            if car_in_front < min_gap:
-                return 0
+            # If the car in front reaches zero, that's a crash.
+            assert car_in_front >= 0
 
-            brake, gas = control(speed, acceleration,
-                                 car_in_front, steer_torque)
+            # TODO: Assert the gap parameter is respected during all the maneuver.
 
-        # TODO: Calculate score, for now it always returns 10.
-        # It should be 0 when the car crashes and higher if it doesn't.
-        score = 10
-        return score
+            # TODO: Assert the desired speed matches the actual speed at the end of the maneuver.
+
+            # TODO: Figure out how to set the desired speed.
+            desired_speed=None
+
+            brake, gas = control(speed=speed,
+                                 acceleration=acceleration,
+                                 car_in_front=car_in_front,
+                                 gap=gap,
+                                 desired_speed=desired_speed,
+                                 brake=brake,
+                                 gas=gas)
+
+            if gas > 0:
+                # accelerating
+                new_state = 1
+            elif brake > 0:
+                # braking
+                new_state = -1
+            else:
+                # not accelerating
+                new_state = 0
+
+            # getting the rate of change of acceleration
+            # TODO: add division by exact time, if relevent(did not delve deep into timekeeping)
+            rate_accel = acceleration - prev_accel
+            prev_accel = acceleration
+
+            # The higher the value of neg_score, worse the controller.
+            # multiplication with rate_accel scales the change based on the speed of change.
+            neg_score += abs((new_state - previous_state) * rate_accel * accel_const)
+            previous_state = new_state
+
+            # this updates the plots with latest state
+            vis.update_data(cur_time=plant.current_time(), speed=speed, acceleration=acceleration, \
+                gas_control = gas, brake_control = brake, car_in_front=car_in_front, steer_torque=steer_torque, score=neg_score)
+
+        neg_score /= self.duration
+        # this cleans up the plots for this maneuver and pauses until user presses [Enter]
+        vis.show_final_plots()
+        assert neg_score <= neg_score_threshold
+
+        return
