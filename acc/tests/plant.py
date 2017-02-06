@@ -121,16 +121,10 @@ class Plant(object):
         self.lead_relevancy = lead_relevancy
 
         # lead car
-        self.distance_lead, self.distance_lead_prev = distance_lead, distance_lead
+        self.distance_lead_prev = distance_lead
 
         self.rk = Ratekeeper(rate, print_delay_threshold=100)
         self.ts = 1. / rate
-
-    def speed_sensor(self, speed):
-        if speed < 0.3:
-            return 0
-        else:
-            return speed
 
     def current_time(self):
         return float(self.rk.frame) / self.rate
@@ -154,14 +148,14 @@ class Plant(object):
 
         # *** radar model ***
         if self.lead_relevancy:
-            d_rel = np.maximum(0., self.distance_lead - distance)
+            d_rel = np.maximum(0., distance_lead - distance)
             v_rel = v_lead - speed
         else:
             d_rel = 200.
             v_rel = 0.
 
         # set sensible value to acceleration for first iteration
-        if self.acceleration_prev == None:
+        if self.acceleration_prev is None:
             self.acceleration_prev = acceleration
         # print at 5hz
         # if (self.rk.frame % (self.rate / 5)) == 0:

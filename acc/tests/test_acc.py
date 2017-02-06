@@ -2,8 +2,8 @@
 import pytest
 
 from .maneuver import Maneuver
-from acc.cruise import CruiseControl
-control = CruiseControl()
+from acc.cruise import control
+
 
 class CV:
     MPH_TO_MS = 1.609 / 3.6
@@ -129,7 +129,7 @@ maneuvers = [
         duration=30.,
         initial_speed=0.,
         lead_relevancy=True,
-        initial_distance_lead=4.,
+        initial_distance_lead=11.,
         speed_lead_values=[0, 0, 45],
         speed_lead_breakpoints=[0, 10., 40.],
         cruise_speeds=[(30., 0)]
@@ -159,7 +159,7 @@ maneuvers = [
         duration=30.,
         initial_speed=10.,
         lead_relevancy=True,
-        initial_distance_lead=10.,
+        initial_distance_lead=20.,
         speed_lead_values=[20., 0.],
         speed_lead_breakpoints=[1., 11.],
         cruise_speeds=[(20., 0)]
@@ -177,8 +177,9 @@ def test_maneuvers(maneuver, score):
     # assertions in evaluate will make tests fail if needed.
     maneuver.evaluate(control=control, verbosity=verbosity)
 
-# TO BE DELETED LATER. MADE FOR CONVINIENCE IN TESTS
-def manual_run():
-    # verbosity = pytest.config.getoption('verbose')
+
+def test_verbose_run():
+    """Runs tests in verbose mode with plotting and all.
+    """
     # assertions in evaluate will make tests fail if needed.
-    maneuvers[2].evaluate(control=control, verbosity=3)
+    maneuvers[2].evaluate(control=control, verbosity=5)
